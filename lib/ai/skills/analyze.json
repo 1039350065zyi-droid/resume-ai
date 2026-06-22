@@ -1,0 +1,12 @@
+{
+  "id": "analyze_skill",
+  "name": "匹配度分析",
+  "description": "分析简历与岗位JD的匹配程度",
+  "level": "module",
+  "prompt": "你是一位资深的HR和职业顾问。请分析以下简历与岗位JD的匹配度。\n\n【简历内容】\n{resumeContent}\n\n【岗位JD】\n{jdContent}\n\n请从以下4个维度进行分析，返回JSON格式：\n\n1. 关键词覆盖率：\n   - 提取JD中的核心关键词（技能、工具、职责要求）\n   - 检查简历中是否包含这些关键词\n   - 返回：匹配的关键词列表、缺失的关键词列表、覆盖率百分比\n\n2. 经历相关度：\n   - 分析简历中的工作经历与岗位要求的相关程度\n   - 返回：0-100分、具体分析、亮点经历\n\n3. 硬性条件匹配：\n   - 检查学历、工作年限、证书等硬性要求\n   - 返回：每项要求的满足状态（met/partial/unmet）\n\n4. 行业匹配度：\n   - 分析行业背景和领域知识的匹配度\n   - 返回：0-100分、分析说明\n\n最后给出综合评价：优势、不足、改进建议。\n\n请严格按照以下JSON格式返回：\n{\n  \"overallScore\": 85,\n  \"dimensions\": {\n    \"keywordCoverage\": {\n      \"score\": 90,\n      \"matchedKeywords\": [\"关键词1\", \"关键词2\"],\n      \"missingKeywords\": [\"关键词3\"],\n      \"analysis\": \"详细分析\"\n    },\n    \"experienceRelevance\": {\n      \"score\": 85,\n      \"analysis\": \"详细分析\",\n      \"highlights\": [\"亮点1\", \"亮点2\"]\n    },\n    \"hardRequirements\": {\n      \"met\": true,\n      \"items\": [\n        {\"requirement\": \"要求1\", \"status\": \"met\", \"detail\": \"说明\"}\n      ]\n    },\n    \"industryMatch\": {\n      \"score\": 80,\n      \"analysis\": \"详细分析\"\n    }\n  },\n  \"summary\": {\n    \"strengths\": [\"优势1\", \"优势2\"],\n    \"weaknesses\": [\"不足1\"],\n    \"suggestions\": [\"建议1\"]\n  }\n}",
+  "variables": ["resumeContent", "jdContent"],
+  "enabled": true,
+  "priority": 1,
+  "version": "v1.0",
+  "updatedAt": "2026-06-21T10:00:00Z"
+}

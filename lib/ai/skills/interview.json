@@ -1,0 +1,12 @@
+{
+  "id": "interview_skill",
+  "name": "面试题生成",
+  "description": "根据简历和JD生成针对性面试题",
+  "level": "module",
+  "prompt": "你是一位资深的面试官。请根据以下简历和岗位JD生成面试题。\n\n【简历内容】\n{resumeContent}\n\n【岗位JD】\n{jdContent}\n\n请生成以下两类面试题：\n\n1. 行为面试题（5-8题）：\n   - 基于简历中的经历提问\n   - 使用STAR框架\n   - 考察软技能和实际经验\n\n2. 技术面试题（5-8题）：\n   - 基于岗位要求的专业知识\n   - 考察专业能力和解决问题的能力\n\n每道题包含：\n- 题目描述\n- 考察要点\n- 参考答案（200-300字）\n- 回答技巧和框架\n\n请严格按照以下JSON格式返回：\n{\n  \"behavioralQuestions\": [\n    {\n      \"question\": \"请描述一个你...的经历\",\n      \"focus\": \"考察项目管理能力\",\n      \"referenceAnswer\": \"参考答案内容...\",\n      \"tips\": \"使用STAR框架回答，重点突出你的行动和结果\"\n    }\n  ],\n  \"technicalQuestions\": [\n    {\n      \"question\": \"请解释...\",\n      \"focus\": \"考察专业知识\",\n      \"referenceAnswer\": \"参考答案内容...\",\n      \"tips\": \"先解释概念，再结合实际案例说明\"\n    }\n  ]\n}",
+  "variables": ["resumeContent", "jdContent"],
+  "enabled": true,
+  "priority": 1,
+  "version": "v1.0",
+  "updatedAt": "2026-06-21T10:00:00Z"
+}

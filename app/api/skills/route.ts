@@ -1,0 +1,20 @@
+import { NextResponse } from 'next/server';
+import { skillManager } from '@/lib/ai/skill-manager';
+
+export async function GET() {
+  try {
+    return NextResponse.json({
+      success: true,
+      data: {
+        modules: skillManager.getModuleSkills(),
+        rules: skillManager.getRuleSkills(),
+      },
+    });
+  } catch (error) {
+    console.error('Get skills error:', error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : '获取技能列表失败' },
+      { status: 500 }
+    );
+  }
+}
