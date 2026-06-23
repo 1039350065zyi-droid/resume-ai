@@ -381,7 +381,6 @@ export default function Home() {
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-base shadow-md shadow-indigo-200">📄</div>
             <div><h1 className="text-lg font-bold text-slate-900 tracking-tight">ResumeAI</h1><p className="text-xs text-slate-400">智能简历优化平台</p></div>
           </div>
-          <button onClick={() => window.location.href = '/admin/skills'} className="btn btn-ghost">⚙️ 后台管理</button>
         </div>
       </nav>
 
