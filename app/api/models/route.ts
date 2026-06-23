@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { modelManager } from '@/lib/ai/model-manager';
+import { requireAdmin } from '@/lib/auth/admin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
-    return NextResponse.json({ success: true, data: modelManager.getAll() });
-  } catch (error) {
+    return NextResponse.json({ success: true, data: modelManager.getSafeAll() });
+  } catch {
     return NextResponse.json({ success: false, error: '获取模型列表失败' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
     if (!body.name || !body.apiUrl || !body.model) {
@@ -24,8 +31,8 @@ export async function POST(request: NextRequest) {
       enabled: body.enabled ?? false,
       isDefault: body.isDefault ?? false,
     });
-    return NextResponse.json({ success: true, data: model });
-  } catch (error) {
+    return NextResponse.json({ success: true, data: modelManager.toSafeModel(model) });
+  } catch {
     return NextResponse.json({ success: false, error: '创建模型失败' }, { status: 500 });
   }
 }

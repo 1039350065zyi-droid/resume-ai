@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient } from '@/lib/ai/mimo';
 import { skillManager } from '@/lib/ai/skill-manager';
+import { requireAdmin } from '@/lib/auth/admin';
 
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { skillId, testData } = await request.json();
     if (!skillId || !testData) {

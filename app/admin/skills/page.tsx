@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Skill } from '@/types';
 
 export default function SkillsPage() {
@@ -14,21 +14,80 @@ export default function SkillsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
-  const load = async () => { try { const r = await fetch('/api/skills'); const d = await r.json(); setModules(d.data.modules); setRules(d.data.rules); } catch {} finally { setLoading(false); } };
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/skills');
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || '获取技能列表失败');
+      }
+      setModules(payload.data.modules);
+      setRules(payload.data.rules);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '获取技能列表失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const handleSave = async () => {
-    if (!sel) return; setSaving(true); setError(null); setSuccess(null);
-    try { const r = await fetch(`/api/skills/${sel.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: sel.name, description: sel.description, prompt: sel.prompt, priority: sel.priority, enabled: sel.enabled }) }); setSel((await r.json()).data); setSuccess('保存成功'); load(); } catch { setError('保存失败'); } finally { setSaving(false); }
+    if (!sel) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/skills/${sel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: sel.name, description: sel.description, prompt: sel.prompt, priority: sel.priority, enabled: sel.enabled }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || '保存失败');
+      }
+      setSel(payload.data);
+      setSuccess('保存成功');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存失败');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTest = async () => {
-    if (!sel) return; setTesting(true); setTestResult(null);
-    try { const r = await fetch('/api/skills/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ skillId: sel.id, testData: { resumeContent: '测试简历', jdContent: '测试JD' } }) }); setTestResult((await r.json()).data.output); } catch { setError('测试失败'); } finally { setTesting(false); }
+    if (!sel) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch('/api/skills/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillId: sel.id, testData: { resumeContent: '测试简历', jdContent: '测试JD' } }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || '测试失败');
+      }
+      setTestResult(payload.data.output);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '测试失败');
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleToggle = async (s: Skill) => {
-    await fetch(`/api/skills/${s.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !s.enabled }) }); load(); if (sel?.id === s.id) setSel({ ...sel, enabled: !sel.enabled });
+    const response = await fetch(`/api/skills/${s.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !s.enabled }) });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      setError(payload.error || '状态更新失败');
+      return;
+    }
+    await load();
+    if (sel?.id === s.id) setSel({ ...sel, enabled: !sel.enabled });
   };
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 rounded-full border-[3px] border-gray-200 border-t-indigo-500 animate-spin" /></div>;
@@ -70,7 +129,7 @@ export default function SkillsPage() {
                 <div><label className="block text-sm font-medium text-gray-600 mb-1">描述</label><input type="text" value={sel.description} onChange={(e) => setSel({ ...sel, description: e.target.value })} className="input w-full" /></div>
                 <div><label className="block text-sm font-medium text-gray-600 mb-1">提示词</label><textarea value={sel.prompt} onChange={(e) => setSel({ ...sel, prompt: e.target.value })} rows={10} className="input w-full font-mono text-sm resize-none" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-gray-600 mb-1">优先级</label><input type="number" value={sel.priority} onChange={(e) => setSel({ ...sel, priority: parseInt(e.target.value) })} min={1} max={10} className="input w-full" /></div>
+                  <div><label className="block text-sm font-medium text-gray-600 mb-1">优先级</label><input type="number" value={sel.priority} onChange={(e) => setSel({ ...sel, priority: parseInt(e.target.value, 10) })} min={1} max={10} className="input w-full" /></div>
                   <div><label className="block text-sm font-medium text-gray-600 mb-1">状态</label><div className="flex items-center h-[42px]"><span className={`badge ${sel.enabled ? 'badge-green' : 'badge-gray'}`}>{sel.enabled ? '已启用' : '已禁用'}</span></div></div>
                 </div>
                 <div><label className="block text-sm font-medium text-gray-600 mb-1">可用变量</label><div className="flex flex-wrap gap-1.5">{sel.variables.map((v, i) => <span key={i} className="badge badge-gray">{`{${v}}`}</span>)}</div></div>

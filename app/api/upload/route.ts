@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateUpload, ValidationError } from '@/lib/api/validation';
 import { parseFile } from '@/lib/parser';
 import { generateId } from '@/lib/utils/format';
 
@@ -6,22 +7,10 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const type = formData.get('type') as 'resume' | 'jd';
-
-    if (!file) {
-      return NextResponse.json({ success: false, error: '请选择文件' }, { status: 400 });
-    }
-
-    if (!type || !['resume', 'jd'].includes(type)) {
-      return NextResponse.json({ success: false, error: '请指定文件类型' }, { status: 400 });
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ success: false, error: '文件大小超过10MB限制' }, { status: 400 });
-    }
+    const { filename } = validateUpload(file, formData.get('type'));
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { content, fileType } = await parseFile(buffer, file.name);
+    const { content, fileType } = await parseFile(buffer, filename);
 
     if (!content.trim()) {
       return NextResponse.json({ success: false, error: '文件内容为空' }, { status: 400 });
@@ -29,9 +18,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { id: generateId(), filename: file.name, content, fileType, size: file.size },
+      data: { id: generateId(), filename, content, fileType, size: file.size },
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
+
     console.error('Upload error:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '文件上传失败' },

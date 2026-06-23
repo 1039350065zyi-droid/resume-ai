@@ -21,7 +21,7 @@ export async function parsePDF(buffer: Buffer): Promise<string> {
       return text;
     }
     console.log('PDF text returned minimal content, rendering pages to images...');
-  } catch (error) {
+  } catch {
     console.log('PDF text extraction failed, rendering pages to images...');
   }
 
@@ -46,7 +46,7 @@ export async function parsePDF(buffer: Buffer): Promise<string> {
     await parser.destroy();
     if (allText.length > 0) return allText.join('\n\n');
     throw new Error('无法从PDF中提取文字');
-  } catch (error) {
+  } catch {
     await parser.destroy().catch(() => {});
     throw new Error('PDF解析失败，请尝试将PDF内容复制粘贴为文字');
   }

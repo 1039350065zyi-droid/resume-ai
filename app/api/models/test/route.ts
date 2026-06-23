@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/ai/mimo';
+import { modelManager } from '@/lib/ai/model-manager';
+import { requireAdmin } from '@/lib/auth/admin';
 import { ModelConfig } from '@/types';
 
+interface ModelTestBody {
+  modelId?: string;
+  config?: Partial<ModelConfig>;
+}
+
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
-    const config: ModelConfig = await request.json();
+    const body = await request.json() as ModelTestBody & Partial<ModelConfig>;
+    const configInput: Partial<ModelConfig> = body.config ?? body;
+    const savedModel = body.modelId ? modelManager.getById(body.modelId) : undefined;
+    const config: ModelConfig = {
+      id: configInput?.id || savedModel?.id || 'test',
+      name: configInput?.name || savedModel?.name || 'test',
+      provider: configInput?.provider || savedModel?.provider || '',
+      apiUrl: configInput?.apiUrl || savedModel?.apiUrl || '',
+      model: configInput?.model || savedModel?.model || '',
+      apiKey: configInput?.apiKey || savedModel?.apiKey || '',
+      enabled: configInput?.enabled ?? savedModel?.enabled ?? false,
+      isDefault: configInput?.isDefault ?? savedModel?.isDefault ?? false,
+    };
 
     if (!config.apiUrl || !config.apiKey || !config.model) {
       return NextResponse.json({ success: false, error: '请填写完整的模型配置' }, { status: 400 });

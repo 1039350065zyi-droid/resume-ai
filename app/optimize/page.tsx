@@ -4,15 +4,18 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { OptimizeResult, OptimizeMode } from '@/types';
 
+const readSessionValue = (key: string) => typeof window === 'undefined' ? '' : sessionStorage.getItem(key) || '';
+
 export default function OptimizePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OptimizeResult | null>(null);
-  const [rc, setRc] = useState(''); const [jc, setJc] = useState('');
+  const [rc] = useState(() => readSessionValue('resumeContent'));
+  const [jc] = useState(() => readSessionValue('jdContent'));
   const [mode, setMode] = useState<OptimizeMode>('smart');
 
-  useEffect(() => { const r = sessionStorage.getItem('resumeContent'), j = sessionStorage.getItem('jdContent'); if (!r || !j) { router.push('/'); return; } setRc(r); setJc(j); }, []);
+  useEffect(() => { if (!rc || !jc) router.push('/'); }, [jc, rc, router]);
 
   const handleOptimize = async () => {
     setLoading(true); setError(null);
@@ -27,6 +30,8 @@ export default function OptimizePage() {
     { v: 'full' as const, icon: '📋', title: '完整模式', desc: '按顺序执行全部8个规则' },
     { v: 'custom' as const, icon: '⚙️', title: '自定义模式', desc: '手动选择要应用的规则' },
   ];
+
+  if (!rc || !jc) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-indigo-500 animate-spin" /></div>;
 
   return (
     <>

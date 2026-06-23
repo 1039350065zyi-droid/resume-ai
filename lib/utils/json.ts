@@ -1,3 +1,5 @@
+import { jsonrepair } from 'jsonrepair';
+
 /**
  * Extract and parse JSON from AI response text.
  * Handles: markdown code blocks, trailing commas, unclosed brackets, unterminated strings.
@@ -15,12 +17,23 @@ export function extractJSON<T = unknown>(text: string): T {
   try {
     return JSON.parse(jsonStr);
   } catch {
-    // Step 3: Fix common issues and retry
+    // Step 3: Repair JSON-like model output and retry
+    try {
+      return JSON.parse(jsonrepair(jsonStr));
+    } catch {
+      // Continue to local fixer below.
+    }
+
+    // Step 4: Fix common issues and retry
     const fixed = fixJSON(jsonStr);
     try {
       return JSON.parse(fixed);
     } catch (e) {
-      throw new Error(`AI返回的JSON格式错误: ${(e as Error).message}`);
+      try {
+        return JSON.parse(jsonrepair(fixed));
+      } catch {
+        throw new Error(`AI返回的JSON格式错误: ${(e as Error).message}`);
+      }
     }
   }
 }

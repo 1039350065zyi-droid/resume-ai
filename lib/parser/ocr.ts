@@ -23,19 +23,22 @@ export async function parseImage(buffer: Buffer): Promise<string> {
 }
 
 export async function parseImageWithVision(buffer: Buffer): Promise<string> {
-  const apiKey = process.env.MIMO_API_KEY || '';
-  const apiUrl = process.env.MIMO_API_URL || 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions';
-
-  if (!apiKey) throw new Error('API Key not configured');
+  const { getClient } = await import('@/lib/ai/mimo');
+  const client = await getClient();
+  const config = client.getConfig();
+  const visionModel = process.env.MIMO_VISION_MODEL || config.model || 'mimo-v2.5';
+  if (!config.apiUrl || !config.apiKey) {
+    throw new Error('Vision API 未配置');
+  }
 
   const base64 = buffer.toString('base64');
   const mimeType = detectMimeType(buffer);
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
   const response = await axios.post(
-    apiUrl,
+    config.apiUrl,
     {
-      model: 'mimo-v2.5',
+      model: visionModel,
       messages: [{
         role: 'user',
         content: [
@@ -46,7 +49,7 @@ export async function parseImageWithVision(buffer: Buffer): Promise<string> {
       max_tokens: 4096,
     },
     {
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
       timeout: 60000,
     }
   );

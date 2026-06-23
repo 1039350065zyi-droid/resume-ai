@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
+import { clearAdminCookie } from '@/lib/auth/admin';
 
 export async function POST() {
   const response = NextResponse.json({ success: true });
-  response.cookies.delete('admin_token');
-  return response;
+  return clearAdminCookie(response);
 }

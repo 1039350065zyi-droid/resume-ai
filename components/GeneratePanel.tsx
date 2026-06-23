@@ -1,9 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import jsPDF from 'jspdf';
 
 const GENERATE_DURATION = 45;
+type DocxModule = typeof import('docx');
+
+interface DocxTextRunOptions {
+  bold?: boolean;
+  color?: string;
+  italics?: boolean;
+  size?: number;
+}
 
 interface ResumeData {
   personalInfo: { name: string; phone: string; email: string; city: string; age?: string; targetPosition: string; tagline: string; };
@@ -16,6 +23,21 @@ interface ResumeData {
   selfEvaluation: string;
 }
 
+interface ExperienceBlockProps {
+  company: string;
+  position: string;
+  period: string;
+  highlights: string[];
+}
+
+interface ProjectBlockProps {
+  name: string;
+  role: string;
+  period: string;
+  description: string;
+  highlights: string[];
+}
+
 export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
   resumeContent: string; jdContent: string; onClose: () => void;
 }) {
@@ -26,19 +48,10 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ResumeData | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [progress, setProgress] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef(0);
-  const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
-
-  useEffect(() => {
-    if (loading) {
-      const pct = Math.min(95, (elapsed / GENERATE_DURATION) * 100);
-      setProgress(pct);
-    }
-  }, [elapsed, loading]);
 
   const startTimer = () => {
     startTimeRef.current = Date.now(); setElapsed(0);
@@ -49,6 +62,7 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
   const stopTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
   const formatTime = (s: number) => s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${s % 60}秒`;
+  const progress = loading ? Math.min(95, (elapsed / GENERATE_DURATION) * 100) : 0;
 
   const handleGenerate = async () => {
     setLoading(true); setError(null); startTimer();
@@ -69,32 +83,36 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
   };
 
   const handleDownloadPDF = async () => {
-    if (!previewRef.current || !data) return;
-    const el = previewRef.current;
-    const w = 595, h = 842;
-    const canvas = document.createElement('canvas');
-    canvas.width = w * 2; canvas.height = h * 2;
-    const ctx = canvas.getContext('2d')!;
-    ctx.scale(2, 2); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+    if (!data) return;
+    const res = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'generated-resume', content: { resume: data, template } }),
+    });
 
-    let html2canvas;
-    try {
-      html2canvas = (await import('html2canvas')).default;
-    } catch {
-      alert('PDF 生成功能需要安装依赖，请在项目目录执行：npm install html2canvas');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      alert(body?.error || 'PDF 生成失败');
       return;
     }
-    const c = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fff', width: w, windowWidth: w });
-    ctx.drawImage(c, 0, 0, w, h);
 
-    const doc = new jsPDF({ unit: 'px', format: [w, h] });
-    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-    doc.save(`${data.personalInfo.name || '简历'}-${template}.pdf`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.personalInfo.name || '简历'}-${template}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = async () => {
+    if (format.pdf) await handleDownloadPDF();
+    if (format.docx) await handleDownloadDOCX();
   };
 
   const handleDownloadDOCX = async () => {
     if (!data) return;
-    let docx;
+    let docx: DocxModule;
     try {
       docx = await import('docx');
     } catch {
@@ -102,8 +120,15 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
       return;
     }
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
-    const s = (text: string, opts: any = {}) => new TextRun({ text, font: 'Microsoft YaHei', size: 22, ...opts });
-    const h = (text: string, level: any = HeadingLevel.HEADING_2) => new Paragraph({ children: [new TextRun({ text, font: 'Microsoft YaHei', bold: true, size: level === HeadingLevel.HEADING_1 ? 32 : 26, color: level === HeadingLevel.HEADING_1 ? '1a1a2e' : '2c3e50' })], heading: level, spacing: { before: 200, after: 100 } });
+    const s = (text: string, opts: DocxTextRunOptions = {}) => new TextRun({ text, font: 'Microsoft YaHei', size: 22, ...opts });
+    const h = (text: string, isMain = false) => {
+      const heading = isMain ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2;
+      return new Paragraph({
+        children: [new TextRun({ text, font: 'Microsoft YaHei', bold: true, size: isMain ? 32 : 26, color: isMain ? '1a1a2e' : '2c3e50' })],
+        heading,
+        spacing: { before: 200, after: 100 },
+      });
+    };
     const p = (text: string, indent?: number) => new Paragraph({ children: [s(text)], indent: indent ? { left: indent } : undefined, spacing: { after: 60 } });
     const bullet = (text: string) => new Paragraph({ children: [s(text)], bullet: { level: 0 }, spacing: { after: 40 } });
 
@@ -230,13 +255,13 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
   const SidebarItem = ({ label, value }: { label: string; value: string }) => (
     <p style={{ fontSize: 10.5, marginBottom: 5, color: 'rgba(255,255,255,0.8)' }}><span style={{ color: 'rgba(255,255,255,0.5)' }}>{label}：</span>{value}</p>
   );
-  const ExpBlock = ({ company, position, period, highlights }: any) => (
+  const ExpBlock = ({ company, position, period, highlights }: ExperienceBlockProps) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><div><span style={{ fontWeight: 600, fontSize: 13 }}>{company}</span><span style={{ color: '#555', marginLeft: 10, fontSize: 12 }}>{position}</span></div><span style={{ color: '#888', fontSize: 11 }}>{period}</span></div>
       <ul style={{ margin: 0, paddingLeft: 16 }}>{highlights.map((h: string, i: number) => <li key={i} style={{ fontSize: 11.5, color: '#333', marginBottom: 3 }}>{h}</li>)}</ul>
     </div>
   );
-  const ProjectBlock = ({ name, role, period, description, highlights }: any) => (
+  const ProjectBlock = ({ name, role, period, description, highlights }: ProjectBlockProps) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}><div><span style={{ fontWeight: 600, fontSize: 13 }}>{name}</span><span style={{ color: '#555', marginLeft: 10, fontSize: 12 }}>{role}</span></div><span style={{ color: '#888', fontSize: 11 }}>{period}</span></div>
       <p style={{ fontSize: 11.5, color: '#555', marginBottom: 4 }}>{description}</p>
@@ -314,9 +339,7 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
               <h4 className="text-sm font-semibold text-slate-700 mb-3">简历预览</h4>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: '#f1f5f9', padding: 20, display: 'flex', justifyContent: 'center' }}>
                 <div style={{ transform: 'scale(0.55)', transformOrigin: 'top center', width: 595, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', borderRadius: 4 }}>
-                  <div ref={previewRef}>
-                    {template === 'classic' ? <ClassicTemplate /> : template === 'modern' ? <ModernTemplate /> : <CreativeTemplate />}
-                  </div>
+                  {template === 'classic' ? <ClassicTemplate /> : template === 'modern' ? <ModernTemplate /> : <CreativeTemplate />}
                 </div>
               </div>
             </div>
@@ -334,7 +357,7 @@ export default function GeneratePanel({ resumeContent, jdContent, onClose }: {
                   <div><p className="text-sm font-medium text-slate-900">Word 格式</p><p className="text-xs text-slate-400">可编辑，方便二次修改</p></div>
                 </div>
               </div>
-              <button onClick={() => { if (format.pdf) handleDownloadPDF(); if (format.docx) handleDownloadDOCX(); }} disabled={!format.pdf && !format.docx} className="btn btn-primary w-full text-sm py-3 mb-3">📥 下载简历</button>
+              <button onClick={handleDownload} disabled={!format.pdf && !format.docx} className="btn btn-primary w-full text-sm py-3 mb-3">📥 下载简历</button>
               <button onClick={() => { setStep('generate'); setData(null); setError(null); }} className="btn btn-soft w-full text-sm py-2.5">🔄 重新生成</button>
             </div>
           </div>

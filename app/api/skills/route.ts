@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { skillManager } from '@/lib/ai/skill-manager';
+import { requireAdmin } from '@/lib/auth/admin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     return NextResponse.json({
       success: true,

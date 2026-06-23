@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import GeneratePanel from '@/components/GeneratePanel';
+import type { HardRequirement, InterviewQuestion, InterviewResult, MatchAnalysis, OptimizeChange, OptimizeMode, OptimizeResult } from '@/types';
 
 const UPLOAD_DURATION = 1;
 const ANALYZE_DURATION = 60;
@@ -164,22 +165,21 @@ export default function Home() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
   const [content, setContent] = useState('');
-  const [analyzeResult, setAnalyzeResult] = useState<any>(null);
+  const [analyzeResult, setAnalyzeResult] = useState<MatchAnalysis | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [step, setStep] = useState('');
-  const [progress, setProgress] = useState(0);
 
   // 优化
   const [optimizeLoading, setOptimizeLoading] = useState(false);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
-  const [optimizeResult, setOptimizeResult] = useState<any>(null);
-  const [optimizeMode, setOptimizeMode] = useState<'smart' | 'full' | 'custom'>('smart');
+  const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
+  const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>('smart');
   const [optimizeNeedsSetup, setOptimizeNeedsSetup] = useState(true);
 
   // 面试
   const [interviewLoading, setInterviewLoading] = useState(false);
   const [interviewError, setInterviewError] = useState<string | null>(null);
-  const [interviewResult, setInterviewResult] = useState<any>(null);
+  const [interviewResult, setInterviewResult] = useState<InterviewResult | null>(null);
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
 
   // 生成简历
@@ -187,9 +187,7 @@ export default function Home() {
 
   // 进度条
   const [optimizeElapsed, setOptimizeElapsed] = useState(0);
-  const [optimizeProgress, setOptimizeProgress] = useState(0);
   const [interviewElapsed, setInterviewElapsed] = useState(0);
-  const [interviewProgress, setInterviewProgress] = useState(0);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -199,6 +197,10 @@ export default function Home() {
   const startTimeRef = useRef(0);
   const optimizeStartRef = useRef(0);
   const interviewStartRef = useRef(0);
+  const analyzeTotal = step.includes('解析') ? UPLOAD_DURATION : UPLOAD_DURATION + ANALYZE_DURATION;
+  const progress = analyzeLoading ? Math.min(95, (elapsed / analyzeTotal) * 100) : 0;
+  const optimizeProgress = optimizeLoading ? Math.min(95, (optimizeElapsed / OPTIMIZE_DURATION) * 100) : 0;
+  const interviewProgress = interviewLoading ? Math.min(95, (interviewElapsed / INTERVIEW_DURATION) * 100) : 0;
 
   useEffect(() => () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -209,22 +211,6 @@ export default function Home() {
   useEffect(() => {
     if (analyzeLoading && contentRef.current) contentRef.current.scrollTop = contentRef.current.scrollHeight;
   }, [reasoning, content, analyzeLoading]);
-
-  useEffect(() => {
-    if (!analyzeLoading) return;
-    const total = step.includes('解析') ? UPLOAD_DURATION : UPLOAD_DURATION + ANALYZE_DURATION;
-    setProgress(Math.min(95, (elapsed / total) * 100));
-  }, [elapsed, step, analyzeLoading]);
-
-  useEffect(() => {
-    if (!optimizeLoading) return;
-    setOptimizeProgress(Math.min(95, (optimizeElapsed / OPTIMIZE_DURATION) * 100));
-  }, [optimizeElapsed, optimizeLoading]);
-
-  useEffect(() => {
-    if (!interviewLoading) return;
-    setInterviewProgress(Math.min(95, (interviewElapsed / INTERVIEW_DURATION) * 100));
-  }, [interviewElapsed, interviewLoading]);
 
   const formatTime = (s: number) => s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${s % 60}秒`;
 
@@ -362,7 +348,7 @@ export default function Home() {
   };
 
   const handleDownload = async (type: 'report' | 'resume' | 'interview') => {
-    const contentMap: Record<string, any> = { report: analyzeResult, resume: optimizeResult, interview: interviewResult };
+    const contentMap: Record<typeof type, MatchAnalysis | OptimizeResult | InterviewResult | null> = { report: analyzeResult, resume: optimizeResult, interview: interviewResult };
     const data = contentMap[type];
     if (!data) return;
     const res = await fetch('/api/download', {
@@ -533,7 +519,7 @@ export default function Home() {
 
                   <div className="card-solid p-6">
                     <h3 className="text-base font-semibold text-slate-900 mb-4">硬性条件检查</h3>
-                    <div className="space-y-2">{analyzeResult.dimensions.hardRequirements.items.map((item: any, i: number) => (
+                    <div className="space-y-2">{analyzeResult.dimensions.hardRequirements.items.map((item: HardRequirement, i: number) => (
                       <div key={i} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50">
                         <div><p className="text-sm font-medium text-slate-900">{item.requirement}</p><p className="text-xs text-slate-500">{item.detail}</p></div>
                         <span className={`badge ${bd(item.status)}`}>{item.status === 'met' ? '达标' : item.status === 'partial' ? '部分达标' : '未达标'}</span>
@@ -625,7 +611,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-slate-900 mb-4">修改详情</h3>
-                    <div className="space-y-4">{optimizeResult.changes.map((c: any, i: number) => (
+                    <div className="space-y-4">{optimizeResult.changes.map((c: OptimizeChange, i: number) => (
                       <div key={i} className="rounded-2xl bg-slate-50/80 border border-slate-100 p-4">
                         <span className="badge badge-purple mb-3">{c.rule}</span>
                         <div className="grid md:grid-cols-2 gap-4 mt-2">
@@ -690,7 +676,7 @@ export default function Home() {
                         <div className="flex-1"><h3 className="text-base font-semibold text-slate-900">{group.label}</h3><p className="text-xs text-slate-500">基于你的简历和岗位要求</p></div>
                         <span className="badge badge-blue">{group.questions?.length || 0} 题</span>
                       </div>
-                      <div className="space-y-2.5">{group.questions?.map((q: any, i: number) => (
+                      <div className="space-y-2.5">{group.questions?.map((q: InterviewQuestion, i: number) => (
                         <QuestionCard key={i} q={q} idx={group.startIdx + i} isOpen={expandedQ === group.startIdx + i} onToggle={() => setExpandedQ(expandedQ === group.startIdx + i ? null : group.startIdx + i)} />
                       ))}</div>
                     </div>

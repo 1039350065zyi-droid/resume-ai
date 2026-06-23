@@ -4,15 +4,18 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { InterviewResult, InterviewQuestion } from '@/types';
 
+const readSessionValue = (key: string) => typeof window === 'undefined' ? '' : sessionStorage.getItem(key) || '';
+
 export default function InterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InterviewResult | null>(null);
-  const [rc, setRc] = useState(''); const [jc, setJc] = useState('');
+  const [rc] = useState(() => readSessionValue('resumeContent'));
+  const [jc] = useState(() => readSessionValue('jdContent'));
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  useEffect(() => { const r = sessionStorage.getItem('resumeContent'), j = sessionStorage.getItem('jdContent'); if (!r || !j) { router.push('/'); return; } setRc(r); setJc(j); }, []);
+  useEffect(() => { if (!rc || !jc) router.push('/'); }, [jc, rc, router]);
 
   const handleGenerate = async () => {
     setLoading(true); setError(null);
@@ -55,6 +58,8 @@ export default function InterviewPage() {
       })}</div>
     </div>
   );
+
+  if (!rc || !jc) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-indigo-500 animate-spin" /></div>;
 
   return (
     <>

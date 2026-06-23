@@ -122,3 +122,8 @@ export interface ModelConfig {
   enabled: boolean;
   isDefault: boolean;
 }
+
+export interface SafeModelConfig extends Omit<ModelConfig, 'apiKey'> {
+  apiKey: '';
+  hasApiKey: boolean;
+}

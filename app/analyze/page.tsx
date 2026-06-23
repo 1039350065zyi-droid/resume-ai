@@ -1,43 +1,56 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MatchAnalysis } from '@/types';
 
+const readSessionValue = (key: string) => typeof window === 'undefined' ? '' : sessionStorage.getItem(key) || '';
+const scoreClass = (s: number) => s >= 80 ? 'grad-green' : s >= 60 ? 'grad-indigo' : 'grad-orange';
+const badgeClass = (s: string) => s === 'met' ? 'badge-green' : s === 'partial' ? 'badge-orange' : 'badge-red';
+
+const Ring = ({ v, sz = 170 }: { v: number; sz?: number }) => {
+  const sw = 11, r = (sz - sw) / 2, c = 2 * Math.PI * r, o = c - (v / 100) * c;
+  const g = v >= 80 ? 'rg' : v >= 60 ? 'rb' : v >= 40 ? 'ro' : 'rr';
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg width={sz} height={sz} className="ring">
+        <defs>
+          <linearGradient id="rg"><stop offset="0%" stopColor="#22c55e" /><stop offset="100%" stopColor="#06b6d4" /></linearGradient>
+          <linearGradient id="rb"><stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#a855f7" /></linearGradient>
+          <linearGradient id="ro"><stop offset="0%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#ef4444" /></linearGradient>
+          <linearGradient id="rr"><stop offset="0%" stopColor="#ef4444" /><stop offset="100%" stopColor="#ec4899" /></linearGradient>
+        </defs>
+        <circle className="ring-track" cx={sz/2} cy={sz/2} r={r} strokeWidth={sw} />
+        <circle className="ring-fill" cx={sz/2} cy={sz/2} r={r} strokeWidth={sw} stroke={`url(#${g})`} strokeDasharray={c} strokeDashoffset={o} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={`text-5xl font-extrabold ${scoreClass(v)}`}>{v}</span>
+        <span className="text-sm text-slate-400 mt-0.5">分</span>
+      </div>
+    </div>
+  );
+};
+
 export default function AnalyzePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MatchAnalysis | null>(null);
-  const [resumeContent, setResumeContent] = useState('');
-  const [jdContent, setJdContent] = useState('');
+  const [resumeContent] = useState(() => readSessionValue('resumeContent'));
+  const [jdContent] = useState(() => readSessionValue('jdContent'));
   const [reasoning, setReasoning] = useState('');
   const [content, setContent] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const startTimeRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  useEffect(() => {
-    const r = sessionStorage.getItem('resumeContent'), j = sessionStorage.getItem('jdContent');
-    if (!r || !j) { router.push('/'); return; }
-    setResumeContent(r); setJdContent(j); setLoading(false);
-    handleAnalyze(r, j);
-  }, []);
-
-  // Auto scroll content
-  useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
-    }
-  }, [reasoning, content]);
-
-  const handleAnalyze = async (resume: string, jd: string) => {
+  const handleAnalyze = useCallback(async (resume: string, jd: string) => {
     setAnalyzing(true); setError(null); setReasoning(''); setContent(''); setResult(null);
     startTimeRef.current = Date.now();
     setElapsed(0);
@@ -103,7 +116,25 @@ export default function AnalyzePage() {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       setAnalyzing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!resumeContent || !jdContent) {
+      router.push('/');
+      return;
+    }
+
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void Promise.resolve().then(() => handleAnalyze(resumeContent, jdContent));
+  }, [handleAnalyze, jdContent, resumeContent, router]);
+
+  // Auto scroll content
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    }
+  }, [reasoning, content]);
 
   const formatTime = (s: number) => s < 60 ? `${s}秒` : `${Math.floor(s / 60)}分${s % 60}秒`;
 
@@ -115,33 +146,7 @@ export default function AnalyzePage() {
     const a = document.createElement('a'); a.href = u; a.download = `report-${Date.now()}.pdf`; a.click(); URL.revokeObjectURL(u);
   };
 
-  const sc = (s: number) => s >= 80 ? 'grad-green' : s >= 60 ? 'grad-indigo' : 'grad-orange';
-  const bd = (s: string) => s === 'met' ? 'badge-green' : s === 'partial' ? 'badge-orange' : 'badge-red';
-
-  const Ring = ({ v, sz = 170 }: { v: number; sz?: number }) => {
-    const sw = 11, r = (sz - sw) / 2, c = 2 * Math.PI * r, o = c - (v / 100) * c;
-    const g = v >= 80 ? 'rg' : v >= 60 ? 'rb' : v >= 40 ? 'ro' : 'rr';
-    return (
-      <div className="relative inline-flex items-center justify-center">
-        <svg width={sz} height={sz} className="ring">
-          <defs>
-            <linearGradient id="rg"><stop offset="0%" stopColor="#22c55e" /><stop offset="100%" stopColor="#06b6d4" /></linearGradient>
-            <linearGradient id="rb"><stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#a855f7" /></linearGradient>
-            <linearGradient id="ro"><stop offset="0%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#ef4444" /></linearGradient>
-            <linearGradient id="rr"><stop offset="0%" stopColor="#ef4444" /><stop offset="100%" stopColor="#ec4899" /></linearGradient>
-          </defs>
-          <circle className="ring-track" cx={sz/2} cy={sz/2} r={r} strokeWidth={sw} />
-          <circle className="ring-fill" cx={sz/2} cy={sz/2} r={r} strokeWidth={sw} stroke={`url(#${g})`} strokeDasharray={c} strokeDashoffset={o} />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-5xl font-extrabold ${sc(v)}`}>{v}</span>
-          <span className="text-sm text-slate-400 mt-0.5">分</span>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-indigo-500 animate-spin" /></div>;
+  if (!resumeContent || !jdContent) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-indigo-500 animate-spin" /></div>;
 
   return (
     <>
@@ -204,7 +209,7 @@ export default function AnalyzePage() {
                 <div key={d.label} className="card-solid p-5 text-center">
                   <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${d.bg} flex items-center justify-center text-lg mx-auto mb-2 border ${d.b} shadow-sm`}>{d.icon}</div>
                   <p className="text-xs text-slate-500 mb-0.5">{d.label}</p>
-                  <p className={`text-2xl font-bold ${sc(d.s)}`}>{d.val}</p>
+                  <p className={`text-2xl font-bold ${scoreClass(d.s)}`}>{d.val}</p>
                 </div>
               ))}
             </div>
@@ -222,7 +227,7 @@ export default function AnalyzePage() {
               <div className="space-y-2">{result.dimensions.hardRequirements.items.map((item, i) => (
                 <div key={i} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50">
                   <div><p className="text-sm font-medium text-slate-900">{item.requirement}</p><p className="text-xs text-slate-500">{item.detail}</p></div>
-                  <span className={`badge ${bd(item.status)}`}>{item.status === 'met' ? '达标' : item.status === 'partial' ? '部分达标' : '未达标'}</span>
+                  <span className={`badge ${badgeClass(item.status)}`}>{item.status === 'met' ? '达标' : item.status === 'partial' ? '部分达标' : '未达标'}</span>
                 </div>
               ))}</div>
             </div>

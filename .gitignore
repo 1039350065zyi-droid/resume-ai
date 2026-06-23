@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-output
+tmp-*.pdf
+tmp-*.png
 
 # next.js
 /.next/
@@ -32,12 +35,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # data (contains API keys - DO NOT commit)
 data/models.json
 
 # vercel
 .vercel
+
+# railway
+.railway
 
 # typescript
 *.tsbuildinfo
