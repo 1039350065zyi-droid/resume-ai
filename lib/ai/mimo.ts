@@ -59,9 +59,13 @@ export class MimoClient {
       try {
         const response = await axios.post<MimoResponse>(
           this.apiUrl,
-          { model: this.model, messages, temperature: 0.2, max_tokens: maxTokens },
+          { model: this.model, messages, temperature: 0.2, max_completion_tokens: maxTokens },
           {
-            headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              'api-key': this.apiKey,
+              'Content-Type': 'application/json',
+            },
             timeout: getAiTimeoutMs(),
           }
         );
